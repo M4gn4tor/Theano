@@ -243,7 +243,7 @@ class PoolBase(OpenMPOp):
             static dnnPrimitive_t convert_int2int_input = NULL;
 
             static void* bp[3];
-            static unsigned int long ip;
+            static void *ip = NULL;
             ////END
         """ % sub
         return ccode
@@ -509,11 +509,8 @@ class Pool(PoolBase):
         std::cout<<"pool start"<<std::endl;
         #endif
         if (1 == first_run){
-            FILE *pFile;
-            pFile = fopen("%(fp)s","w");
-            fprintf(pFile,"%%llu", bp);
-            fflush(pFile);
-            fclose(pFile);
+            ((void **)PyArray_DATA(%(bottom)s))[2] = (void*)bp;
+            //printf(\"pool bp:%%x\\n\",bp);
         }
         if (1 == first_run) {
             size_t kernel_h = %(dH)s;
@@ -685,14 +682,6 @@ class Pool(PoolBase):
         ((dnnLayout_t*)PyArray_DATA(%(top)s))[0] = int_layout_output;
         ((void**)PyArray_DATA(%(top)s))[1] = output_buffer_ptr;
 
-        #if 0
-            float *out_p = (float *)workspace_buffer_ptr;
-            printf(\"pool forward, workspace; %%g, %%g, %%g, %%g, %%g\\n\", out_p[0], out_p[1],out_p[2],out_p[3],out_p[4]);
-            if (dnnLayoutGetMemorySize_%(precision)s(int_layout_output) != (outputSize[0] * outputSize[1] * outputSize[2] * outputSize[3] * sizeof(%(dtype)s))) {
-                printf(\"ERROR: conv forward, z view size NOT equal with z_layout!!!!!!\\n\");
-            }
-        #endif
-
         first_run = 0;
         #if __DEBUG__
         std::cout<<"pool forward, output_buffer_ptr: @"<<output_buffer_ptr<<", output layout: @"<<int_layout_output<<std::endl;
@@ -837,16 +826,8 @@ class PoolGrad(PoolBase):
         std::cout<<"poolgrad start"<<std::endl;
         #endif
         if(first_run) {
-            std::ifstream inp("%(fp)s");
-            if(inp.is_open()) {
-                std::cout<<"pool open inp ok\\n";
-            }else{
-                std::cout<<"open fail\\n";
-            }
-            while(inp>>ip){
-                //std::cout<<std::hex<<"ip "<<ip<<std::dec<<std::endl;
-            }
-            inp.close();
+            ip = ((void**)PyArray_DATA(%(bottom)s))[2];
+            //printf(\"Get %%x \\n\",ip);
         }
         if (1 == first_run) {
             size_t kernel_h = %(dH)s;
